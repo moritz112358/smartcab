@@ -11,7 +11,24 @@ class LearningAgent(Agent):
         self.color = 'red'  # override color
         self.planner = RoutePlanner(self.env, self)  # simple route planner to get next_waypoint
         # TODO: Initialize any additional variables here
-
+        
+        # Initialize Q_hat
+        alpha = 0.5
+        gamma = 0.5
+        Q_hat = {}
+        for next_wp in ['left', 'forward', 'right']:
+            for left_allowed in [True, False]:
+                for forward_allowed in [True, False]:
+                    for right_allowed in [True, False]:
+                        #s = [next_wp, left_allowed, forward_allowed, right_allowed]
+                        for a in [None, 'forward', 'left', 'right']:
+                            Q_hat[(next_wp, left_allowed, forward_allowed, right_allowed,a)] = 0
+        
+        print Q_hat
+        
+        # Random seed
+        random.seed(442)
+        
     def reset(self, destination=None):
         self.planner.route_to(destination)
         # TODO: Prepare for a new trip; reset any variables here, if required
@@ -23,9 +40,14 @@ class LearningAgent(Agent):
         deadline = self.env.get_deadline(self)
 
         # TODO: Update state
-        
+        left_allowed = (inputs['light']=='green') & (inputs['oncoming'] in ['left', None])
+        forward_allowed = inputs['light']=='green'
+        right_allowed = (inputs['light']=='green') | (inputs['left'] in [None, 'left', 'right'])
+        self.state = [self.next_waypoint, left_allowed, forward_allowed, right_allowed]
         
         # TODO: Select action according to your policy
+        
+        # random action (for "Implement basic driving agent")
         action_list = [None, 'forward', 'left', 'right']
         action = action_list[random.randint(0,3)]
 
@@ -33,15 +55,19 @@ class LearningAgent(Agent):
         reward = self.env.act(self, action)
 
         # TODO: Learn policy based on state, action, reward
+        
+        # determine max a' of Q_hat(s',a')
+        max_aprime = 0 #max()
+        
+        Q_hat[self.next_waypoint, left_allowed, forward_allowed, right_allowed] = \
+            (1-alpha) * Q_hat[self.next_waypoint, left_allowed, forward_allowed, right_allowed] + \
+                alpha * (reward + gamma * max_aprime)
 
         print "LearningAgent.update(): deadline = {}, inputs = {}, action = {}, reward = {}".format(deadline, inputs, action, reward)  # [debug]
 
 
 def run():
     """Run the agent for a finite number of trials."""
-
-    # Random seed
-    random.seed(442)
     
     # Set up environment and agent
     e = Environment()  # create environment (also adds some dummy traffic)
