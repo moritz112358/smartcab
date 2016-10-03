@@ -3,6 +3,14 @@ from environment import Agent, Environment
 from planner import RoutePlanner
 from simulator import Simulator
 
+alpha = 1.0
+gamma = 0.5
+states = []
+Q_hat = {}
+cycle_count = 0
+
+action_list = [None, 'forward', 'left', 'right']
+
 class LearningAgent(Agent):
     """An agent that learns to drive in the smartcab world."""
 
@@ -12,56 +20,75 @@ class LearningAgent(Agent):
         self.planner = RoutePlanner(self.env, self)  # simple route planner to get next_waypoint
         # TODO: Initialize any additional variables here
         
-        # Initialize Q_hat
-        alpha = 0.5
-        gamma = 0.5
-        Q_hat = {}
+        # construct states as a list of tuples
         for next_wp in ['left', 'forward', 'right']:
             for left_allowed in [True, False]:
                 for forward_allowed in [True, False]:
                     for right_allowed in [True, False]:
-                        #s = [next_wp, left_allowed, forward_allowed, right_allowed]
-                        for a in [None, 'forward', 'left', 'right']:
-                            Q_hat[(next_wp, left_allowed, forward_allowed, right_allowed,a)] = 0
+                        states.append((next_wp, left_allowed, forward_allowed, right_allowed))
         
-        print Q_hat
+        # Initialize Q_hat as a dict from tuples to values, all values initialized as 0
+        for s in states:
+            for a in action_list:
+                Q_hat[(s,a)] = 0
+        
+        print "States: ",states
+        print
+        print "Q_hat: ",Q_hat
         
         # Random seed
         random.seed(442)
         
     def reset(self, destination=None):
+        global alpha
+        global cycle_count
         self.planner.route_to(destination)
         # TODO: Prepare for a new trip; reset any variables here, if required
+        cycle_count = 1
+        alpha = 1.0 / cycle_count
 
     def update(self, t):
+        global alpha
+        global cycle_count
+        
         # Gather inputs
         self.next_waypoint = self.planner.next_waypoint()  # from route planner, also displayed by simulator
         inputs = self.env.sense(self)
         deadline = self.env.get_deadline(self)
 
         # TODO: Update state
+        
+        # note previous state (==state before state update)
+        if self.state:
+            prev_state = self.state
+        else: 
+            prev_state = ('forward', False, False, False)
+        
         left_allowed = (inputs['light']=='green') & (inputs['oncoming'] in ['left', None])
         forward_allowed = inputs['light']=='green'
         right_allowed = (inputs['light']=='green') | (inputs['left'] in [None, 'left', 'right'])
-        self.state = [self.next_waypoint, left_allowed, forward_allowed, right_allowed]
+        self.state = (self.next_waypoint, left_allowed, forward_allowed, right_allowed)
         
         # TODO: Select action according to your policy
+        # == determine max a' of Q_hat(self.state',a')
+        # initialize action to random action, then check if there is any action that has higher Q-value and if so, make it the action to do
+        action = action_list[random.randint(0,3)] 
+        s_prime = self.state
+        for a in action_list:
+            if Q_hat[(self.state, a)] > Q_hat[(self.state, action)]:
+                action = a
         
-        # random action (for "Implement basic driving agent")
-        action_list = [None, 'forward', 'left', 'right']
-        action = action_list[random.randint(0,3)]
-
         # Execute action and get reward
         reward = self.env.act(self, action)
 
         # TODO: Learn policy based on state, action, reward
         
-        # determine max a' of Q_hat(s',a')
-        max_aprime = 0 #max()
-        
-        Q_hat[self.next_waypoint, left_allowed, forward_allowed, right_allowed] = \
-            (1-alpha) * Q_hat[self.next_waypoint, left_allowed, forward_allowed, right_allowed] + \
-                alpha * (reward + gamma * max_aprime)
+        # update Q_hat according to Q-learning update rule. Note that s'=self.state and s=prev_state
+        Q_hat[(prev_state, action)] = (1-alpha) * Q_hat[(prev_state, action)] + alpha * (reward + gamma * Q_hat[(self.state,action)])
+               
+        # update alpha
+        cycle_count += 1
+        alpha = 1.0 / cycle_count
 
         print "LearningAgent.update(): deadline = {}, inputs = {}, action = {}, reward = {}".format(deadline, inputs, action, reward)  # [debug]
 
@@ -76,7 +103,7 @@ def run():
     # NOTE: You can set enforce_deadline=False while debugging to allow longer trials
 
     # Now simulate it
-    sim = Simulator(e, update_delay=2.0, display=True)  # create simulator (uses pygame when display=True, if available)
+    sim = Simulator(e, update_delay=0.0, display=False)  # create simulator (uses pygame when display=True, if available)
     # NOTE: To speed up simulation, reduce update_delay and/or set display=False
 
     sim.run(n_trials=100)  # run for a specified number of trials
