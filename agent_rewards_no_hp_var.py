@@ -56,7 +56,7 @@ class LearningAgent(Agent):
         cycle_count = 0
         prev_action = None
         prev_reward = 0
-        print "Cumul_reward for previous run:", cumul_rew
+        print "Cumul_reward for previous trial:", cumul_rew
         cumul_rew = 0
 
     def update(self, t):
@@ -117,7 +117,7 @@ class LearningAgent(Agent):
         prev_action = action
         prev_reward = reward
         
-        #print "LearningAgent.update(): deadline = {}, inputs = {}, action = {}, reward = {}".format(deadline, inputs, action, reward)  # [debug]
+        print "LearningAgent.update(): deadline = {}, inputs = {}, action = {}, reward = {}".format(deadline, inputs, action, reward)  # [debug]
 
 
 def run():
@@ -125,12 +125,12 @@ def run():
     
     #MY CODE:
     global alpha, gamma, epsilon, decay_alpha, decay_epsilon
-    for alpha in [0.1, 0.2, 0.3]:
-        for decay_alpha in [0.0, 0.3, 0.6  ]:
-            for gamma in [0.3, 0.4]:
-                for epsilon in [0.05, 0.10]:
-                    for decay_epsilon in [0.0, 0.5,]:
-                        for multiple_runs in range(5):
+    for alpha in [0.3]:
+        for decay_alpha in [0.3]:
+            for gamma in [0.3]:
+                for epsilon in [0.05]:
+                    for decay_epsilon in [0.5]:
+                        for multiple_runs in range(100):
                             # Set up environment and agent
                             e = Environment()  # create environment (also adds some dummy traffic)
                             a = e.create_agent(LearningAgent)  # create agent
